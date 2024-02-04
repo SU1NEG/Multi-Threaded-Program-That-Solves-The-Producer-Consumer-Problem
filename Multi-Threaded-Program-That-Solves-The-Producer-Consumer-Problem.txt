@@ -1,0 +1,113 @@
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Random;
+
+// Monitor class to control access to the buffer
+class BufferMonitor {
+    private Queue<Integer> buffer = new LinkedList<>();
+    private static final int BUFFER_CAPACITY = 100;
+
+    // Method for producers to add items to the buffer
+    public synchronized void produce(int data) throws InterruptedException {
+        // Wait if the buffer is full
+        while (buffer.size() == BUFFER_CAPACITY) {
+            wait();
+        }
+
+        // Add item to the buffer
+        buffer.add(data);
+        System.out.println("Produced: " + data);
+
+        // Notify waiting consumers
+        notifyAll();
+    }
+
+    // Method for consumers to consume items from the buffer
+    public synchronized int consume() throws InterruptedException {
+        // Wait if the buffer is empty
+        while (buffer.isEmpty()) {
+            wait();
+        }
+
+        // Remove and return item from the buffer
+        int data = buffer.poll();
+        System.out.println("Consumed: " + data);
+
+        // Notify waiting producers
+        notifyAll();
+
+        return data;
+    }
+}
+
+// Producer thread class
+class Producer extends Thread {
+    private final BufferMonitor monitor;
+
+    public Producer(BufferMonitor monitor) {
+        this.monitor = monitor;
+    }
+
+    @Override
+    public void run() {
+        try {
+            // Generate 50 random numbers
+            for (int i = 0; i < 50; i++) {
+                int data = new Random().nextInt(100) + 1;
+                monitor.produce(data);
+                sleep(100); // Simulate some processing time
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+// Consumer thread class
+class Consumer extends Thread {
+    private final BufferMonitor monitor;
+
+    public Consumer(BufferMonitor monitor) {
+        this.monitor = monitor;
+    }
+
+    @Override
+    public void run() {
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\Muhammed\\Downloads\\Numbers.txt", true));
+
+            // Consume 50 numbers and write them to the file
+            for (int i = 0; i < 50; i++) {
+                int data = monitor.consume();
+                writer.write(data + "\n");
+                sleep(150); // Simulate some processing time
+            }
+
+            writer.close();
+        } catch (InterruptedException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+public class TSPSolver {
+    public static void main(String[] args) {
+        // Create a buffer monitor
+        BufferMonitor monitor = new BufferMonitor();
+
+        // Create and start producer threads
+        for (int i = 0; i < 5; i++) {
+            Producer producer = new Producer(monitor);
+            producer.start();
+        }
+
+        // Create and start consumer threads
+        for (int i = 0; i < 5; i++) {
+            Consumer consumer = new Consumer(monitor);
+            consumer.start();
+        }
+    }
+}
